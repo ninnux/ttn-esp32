@@ -128,7 +128,8 @@ void messageReceived(const uint8_t* message, size_t length, port_t port)
 {
     printf("Message of %d bytes received on port %d:", length, port);
     for (int i = 0; i < length; i++)
-        printf(" %02x", message[i]);
+        //printf(" %02x", message[i]);
+        printf("%c", message[i]);
     printf("\n");
 }
 
