@@ -18,15 +18,21 @@
 #include "../src/lmic/oslmic.h"
 #include "../src/lmic/lmic.h"
 #include "../src/hal/hal_esp32.h"
+#include "../src/lmic/radio.c"
 
 
+#include "esp32/ulp.h"
+#include "driver/rtc_io.h"
+#include "soc/rtc.h"
+
+#define TIMESLOT 11
 // NOTE:
 // The LoRaWAN frequency and the radio chip must be configured by running 'make menuconfig'.
 // Go to Components / The Things Network, select the appropriate values and save.
 
 // Copy the below hex string from the "Device EUI" field
 // on your device's overview page in the TTN console.
-const char *devEui = "0000000000000015";
+const char *devEui = "0000000000000032";
 
 // Copy the below two lines from bottom of the same page
 const char *appEui = "0000000000000005";
@@ -35,14 +41,36 @@ const char *appKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 // Pins and other resources
 #define TTN_SPI_HOST      HSPI_HOST
 #define TTN_SPI_DMA_CHAN  1
-#define TTN_PIN_SPI_SCLK  5
-#define TTN_PIN_SPI_MOSI  27
-#define TTN_PIN_SPI_MISO  19
-#define TTN_PIN_NSS       18
+#define TTN_PIN_SPI_SCLK  18 
+#define TTN_PIN_SPI_MOSI  23 
+#define TTN_PIN_SPI_MISO  19 
+#define TTN_PIN_NSS       5 
 #define TTN_PIN_RXTX      TTN_NOT_CONNECTED
-#define TTN_PIN_RST       14
-#define TTN_PIN_DIO0      26
-#define TTN_PIN_DIO1      33
+#define TTN_PIN_RST       25 
+#define TTN_PIN_DIO0      27 
+#define TTN_PIN_DIO1      26 
+// RTC_GPIO FOR NCC E RST
+//#define TTN_SPI_HOST      HSPI_HOST
+//#define TTN_SPI_DMA_CHAN  1
+//#define TTN_PIN_SPI_SCLK  18 
+//#define TTN_PIN_SPI_MOSI  23 
+//#define TTN_PIN_SPI_MISO  19 
+//#define TTN_PIN_NSS       27 
+//#define TTN_PIN_RXTX      TTN_NOT_CONNECTED
+//#define TTN_PIN_RST       25 
+//#define TTN_PIN_DIO0      14 
+//#define TTN_PIN_DIO1      26 
+// ttgo
+//#define TTN_SPI_HOST      HSPI_HOST
+//#define TTN_SPI_DMA_CHAN  1
+//#define TTN_PIN_SPI_SCLK  5
+//#define TTN_PIN_SPI_MOSI  27
+//#define TTN_PIN_SPI_MISO  19
+//#define TTN_PIN_NSS       18
+//#define TTN_PIN_RXTX      TTN_NOT_CONNECTED
+//#define TTN_PIN_RST       14
+//#define TTN_PIN_DIO0      26
+//#define TTN_PIN_DIO1      33
 
 static TheThingsNetwork ttn;
 
@@ -57,6 +85,7 @@ RTC_DATA_ATTR u1_t RTCartKey[16];
 RTC_DATA_ATTR int RTCseqnoUp;
 RTC_DATA_ATTR int RTCseqnoDn;
 RTC_DATA_ATTR int deepsleep=0;
+RTC_DATA_ATTR int counter=0;
 
 void sleeppa(int sec)
 {
@@ -92,13 +121,13 @@ void sleeppa(int sec)
     printf("Enabling timer wakeup, %ds\n", wakeup_time_sec);
     esp_sleep_enable_timer_wakeup(wakeup_time_sec * 1000000);
 
-    const int ext_wakeup_pin_1 = 25;
-    const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
-    const int ext_wakeup_pin_2 = 26;
-    const uint64_t ext_wakeup_pin_2_mask = 1ULL << ext_wakeup_pin_2;
+    //const int ext_wakeup_pin_1 = 25;
+    //const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
+    //const int ext_wakeup_pin_2 = 26;
+    //const uint64_t ext_wakeup_pin_2_mask = 1ULL << ext_wakeup_pin_2;
 
-    printf("Enabling EXT1 wakeup on pins GPIO%d, GPIO%d\n", ext_wakeup_pin_1, ext_wakeup_pin_2);
-    esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask | ext_wakeup_pin_2_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
+    //printf("Enabling EXT1 wakeup on pins GPIO%d, GPIO%d\n", ext_wakeup_pin_1, ext_wakeup_pin_2);
+    //esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask | ext_wakeup_pin_2_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
 
     // Isolate GPIO12 pin from external circuits. This is needed for modules
     // which have an external pull-up resistor on GPIO12 (such as ESP32-WROVER)
@@ -113,13 +142,29 @@ void sleeppa(int sec)
 void sendMessages(void* pvParameter)
 {
     while (1) {
-        printf("Sending message...\n");
-        TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
-        printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
+	printf("counter=%d\n",counter);
+	if (counter==TIMESLOT){
+        	printf("Sending message...\n");
+        	TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
+        	printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 
-	RTCseqnoUp=LMIC.seqnoUp;	
-	RTCseqnoDn=LMIC.seqnoDn;	
-	sleeppa(20);
+		RTCseqnoUp=LMIC.seqnoUp;	
+		RTCseqnoDn=LMIC.seqnoDn;	
+		//rtc_gpio_set_direction(GPIO_NUM_27,RTC_GPIO_MODE_INPUT_OUTPUT);
+		//rtc_gpio_pulldown_dis(GPIO_NUM_27);
+		//rtc_gpio_pullup_en(GPIO_NUM_27);                     // set the GPIO_NUM_27 as pull-up
+		//rtc_gpio_set_direction(GPIO_NUM_25,RTC_GPIO_MODE_INPUT_OUTPUT);
+		//rtc_gpio_pulldown_dis(GPIO_NUM_25);
+		//rtc_gpio_pullup_en(GPIO_NUM_25);                     // set the GPIO_NUM_25 as pull-up
+		//esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON); 
+		//////rtc_gpio_hold_en(GPIO_NUM_27);
+		////hal_sleep ();
+		//opmode(OPMODE_SLEEP);
+		counter=0;
+	}else{
+	  counter+=1;
+	}
+	sleeppa(300);
         //vTaskDelay(TX_INTERVAL * 1000 / portTICK_PERIOD_MS);
     }
 }
@@ -143,7 +188,7 @@ extern "C" void app_main(void)
     // Initialize the NVS (non-volatile storage) for saving and restoring the keys
     err = nvs_flash_init();
     ESP_ERROR_CHECK(err);
-
+   if(counter==TIMESLOT or !deepsleep){
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config;
     spi_bus_config.miso_io_num = TTN_PIN_SPI_MISO;
@@ -158,7 +203,7 @@ extern "C" void app_main(void)
     // Configure the SX127x pins
     ttn.configurePins(TTN_SPI_HOST, TTN_PIN_NSS, TTN_PIN_RXTX, TTN_PIN_RST, TTN_PIN_DIO0, TTN_PIN_DIO1);
     ttn.onMessage(messageReceived);
-
+   }
     // The below line can be commented after the first run as the data is saved in NVS
     if(!deepsleep){
     	ttn.provision(devEui, appEui, appKey);
@@ -186,17 +231,19 @@ extern "C" void app_main(void)
     	else
     	{
     	    printf("Join failed. Goodbye\n");
-    	    sleeppa(600);
+    	    sleeppa(300);
     	}
     }else{
-    	LMIC_reset();
-    	//hal_enterCriticalSection();
-    	LMIC_setSession (RTCnetid, RTCdevaddr, RTCnwkKey, RTCartKey);
-    	//hal_leaveCriticalSection();
-	LMIC.seqnoUp=RTCseqnoUp;
-	LMIC.seqnoDn=RTCseqnoDn;
-	printf("mando il messaggio in ABP con numeri di sequenza Up:%d Dn:%d\n",LMIC.seqnoUp,LMIC.seqnoDn);
-    	xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, NULL);
+	if (counter==TIMESLOT){
+    	  LMIC_reset();
+    	  //hal_enterCriticalSection();
+    	  LMIC_setSession (RTCnetid, RTCdevaddr, RTCnwkKey, RTCartKey);
+    	  //hal_leaveCriticalSection();
+	  LMIC.seqnoUp=RTCseqnoUp;
+	  LMIC.seqnoDn=RTCseqnoDn;
+	  printf("mando il messaggio in ABP con numeri di sequenza Up:%d Dn:%d\n",LMIC.seqnoUp,LMIC.seqnoDn);
+	}
+    	  xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, NULL);
 
     }
 }
