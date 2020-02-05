@@ -25,20 +25,25 @@
 #include "driver/rtc_io.h"
 #include "soc/rtc.h"
 
-#define TIMESLOT 11
+#define TIMESLOT 0 
+
+
+uint32_t userUTCTime; // Seconds since the UTC epoch
+
+
 // NOTE:
 // The LoRaWAN frequency and the radio chip must be configured by running 'make menuconfig'.
 // Go to Components / The Things Network, select the appropriate values and save.
 
 // Copy the below hex string from the "Device EUI" field
 // on your device's overview page in the TTN console.
-const char *devEui = "0000000000000032";
+const char *devEui = "0000000000000033";
 
 // Copy the below two lines from bottom of the same page
 const char *appEui = "0000000000000005";
 const char *appKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
-// Pins and other resources
+// Pins and other resources //lolin32
 #define TTN_SPI_HOST      HSPI_HOST
 #define TTN_SPI_DMA_CHAN  1
 #define TTN_PIN_SPI_SCLK  18 
@@ -74,7 +79,7 @@ const char *appKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 static TheThingsNetwork ttn;
 
-const unsigned TX_INTERVAL = 30;
+const unsigned TX_INTERVAL = 300;
 static uint8_t msgData[] = "Hello, world";
 
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
@@ -86,6 +91,31 @@ RTC_DATA_ATTR int RTCseqnoUp;
 RTC_DATA_ATTR int RTCseqnoDn;
 RTC_DATA_ATTR int deepsleep=0;
 RTC_DATA_ATTR int counter=0;
+
+
+
+void user_request_network_time_callback(void *pVoidUserUTCTime, int flagSuccess) {
+    // Explicit conversion from void* to uint32_t* to avoid compiler errors
+    uint32_t *pUserUTCTime = (uint32_t *) pVoidUserUTCTime;
+    lmic_time_reference_t lmicTimeReference;
+    if (flagSuccess != 1) {
+        printf("USER CALLBACK: Not a success");
+        return;
+    }
+    flagSuccess = LMIC_getNetworkTimeReference(&lmicTimeReference);
+    if (flagSuccess != 1) {
+        printf("USER CALLBACK: LMIC_getNetworkTimeReference didn't succeed");
+        return;
+    }
+    *pUserUTCTime = lmicTimeReference.tNetwork + 315964800;
+    ostime_t ticksNow = os_getTime();
+    // Time when the request was sent, in ticks
+    ostime_t ticksRequestSent = lmicTimeReference.tLocal;
+    uint32_t requestDelaySec = osticks2ms(ticksNow - ticksRequestSent) / 1000;
+    *pUserUTCTime += requestDelaySec;
+    printf("ticsNow:%d time:%d tNetwork:%d tLocal:%d\n",ticksNow,*pUserUTCTime, lmicTimeReference.tNetwork, lmicTimeReference.tLocal);
+}
+
 
 void sleeppa(int sec)
 {
@@ -144,8 +174,15 @@ void sendMessages(void* pvParameter)
     while (1) {
 	printf("counter=%d\n",counter);
 	if (counter==TIMESLOT){
-        	printf("Sending message...\n");
+        	printf("Sending message 1...\n");
         	TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
+        	printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
+
+        	printf("aspetto un po...\n");
+    		//vTaskDelay(5000 / portTICK_PERIOD_MS);
+		vTaskDelay( 1000 / portTICK_PERIOD_MS);
+        	printf("Sending message 2...\n");
+        	res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
         	printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 
 		RTCseqnoUp=LMIC.seqnoUp;	
@@ -164,7 +201,7 @@ void sendMessages(void* pvParameter)
 	}else{
 	  counter+=1;
 	}
-	sleeppa(300);
+	sleeppa(10);
         //vTaskDelay(TX_INTERVAL * 1000 / portTICK_PERIOD_MS);
     }
 }
@@ -188,6 +225,7 @@ extern "C" void app_main(void)
     // Initialize the NVS (non-volatile storage) for saving and restoring the keys
     err = nvs_flash_init();
     ESP_ERROR_CHECK(err);
+
    if(counter==TIMESLOT or !deepsleep){
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config;
@@ -226,6 +264,8 @@ extern "C" void app_main(void)
             	printf("%.2x",RTCartKey[k]);
             }
             printf("\n");
+
+
     	    xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, nullptr);
     	}
     	else
@@ -235,15 +275,19 @@ extern "C" void app_main(void)
     	}
     }else{
 	if (counter==TIMESLOT){
-    	  LMIC_reset();
-    	  //hal_enterCriticalSection();
+    	  //LMIC_reset();
+	 //ttn_hal.enterCriticalSection();
+  	  ttn_hal.wakeUp();
+          ttn_hal.leaveCriticalSection();
     	  LMIC_setSession (RTCnetid, RTCdevaddr, RTCnwkKey, RTCartKey);
-    	  //hal_leaveCriticalSection();
 	  LMIC.seqnoUp=RTCseqnoUp;
 	  LMIC.seqnoDn=RTCseqnoDn;
 	  printf("mando il messaggio in ABP con numeri di sequenza Up:%d Dn:%d\n",LMIC.seqnoUp,LMIC.seqnoDn);
+	  //LMIC_requestNetworkTime(user_request_network_time_callback, &userUTCTime);
+          //ttn_hal.wakeUp();
+          //ttn_hal.leaveCriticalSection();
 	}
-    	  xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, NULL);
+    	  xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, nullptr);
 
     }
 }
