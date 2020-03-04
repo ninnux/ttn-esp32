@@ -274,19 +274,17 @@ extern "C" void app_main(void)
     	    sleeppa(300);
     	}
     }else{
-	if (counter==TIMESLOT){
-    	  //LMIC_reset();
-	 //ttn_hal.enterCriticalSection();
-  	  ttn_hal.wakeUp();
+        if (counter==TIMESLOT){
+    	  ttn_hal.initCriticalSection();
+    	  LMIC_reset();
+          ttn_hal.wakeUp();
           ttn_hal.leaveCriticalSection();
     	  LMIC_setSession (RTCnetid, RTCdevaddr, RTCnwkKey, RTCartKey);
-	  LMIC.seqnoUp=RTCseqnoUp;
-	  LMIC.seqnoDn=RTCseqnoDn;
-	  printf("mando il messaggio in ABP con numeri di sequenza Up:%d Dn:%d\n",LMIC.seqnoUp,LMIC.seqnoDn);
-	  //LMIC_requestNetworkTime(user_request_network_time_callback, &userUTCTime);
-          //ttn_hal.wakeUp();
-          //ttn_hal.leaveCriticalSection();
-	}
+          LMIC.seqnoUp=RTCseqnoUp;
+          LMIC.seqnoDn=RTCseqnoDn;
+          printf("mando il messaggio in ABP con numeri di sequenza Up:%d Dn:%d\n",LMIC.seqnoUp,LMIC.seqnoDn);
+          //LMIC_requestNetworkTime(user_request_network_time_callback, &userUTCTime);
+        }
     	  xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, nullptr);
 
     }

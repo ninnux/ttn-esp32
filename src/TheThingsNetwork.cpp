@@ -177,9 +177,11 @@ TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t
     ttn_hal.wakeUp();
     ttn_hal.leaveCriticalSection();
 
+	    printf("pippo1\n");
     int result = 0;
     xQueueReceive(resultQueue, &result, portMAX_DELAY);
 
+	    printf("pippo2\n");
     if (result == EV_TXCOMPLETE)
     {
         bool hasRecevied = (LMIC.txrxFlags & (TXRX_DNW1 | TXRX_DNW2)) != 0;

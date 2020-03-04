@@ -1824,6 +1824,7 @@ static void engineUpdate (void) {
             goto checkrx;
         }
 #endif // !DISABLE_BEACONS
+	    printf("PIPPO engineUpdate dn:%d up:%d check (txbeg - (now + TX_RAMPUP)) :%d txbeg:%d now:%d TX_RAMPUP:%d LMIC.txend:%d\n",LMIC.seqnoDn,LMIC.seqnoUp,txbeg - (now + TX_RAMPUP),txbeg,now,TX_RAMPUP,LMIC.txend);
         // Earliest possible time vs overhead to setup radio
         if( txbeg - (now + TX_RAMPUP) < 0 ) {
             // We could send right now!
@@ -1867,6 +1868,7 @@ static void engineUpdate (void) {
                     // App code might do some stuff after send unaware of RESET.
                     goto reset;
                 }
+		printf("buildDataFrame\n");
                 buildDataFrame();
                 LMIC.osjob.func = FUNC_ADDR(updataDone);
             }
@@ -1933,6 +1935,7 @@ static void engineUpdate (void) {
                        e_.info   = osticks2ms(txbeg-now),
                        e_.info2  = LMIC.seqnoUp-1));
     LMIC_X_DEBUG_PRINTF("%"LMIC_PRId_ostime_t": next engine update in %"LMIC_PRId_ostime_t"\n", now, txbeg-TX_RAMPUP);
+    printf("%d: next engine update in %d\n", now, txbeg-TX_RAMPUP);
     os_setTimedCallback(&LMIC.osjob, txbeg-TX_RAMPUP, FUNC_ADDR(runEngineUpdate));
 }
 
