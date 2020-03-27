@@ -1806,12 +1806,16 @@ static void engineUpdate (void) {
         if( (LMIC.opmode & OP_NEXTCHNL) != 0 ) {
             txbeg = LMIC.txend = LMICbandplan_nextTx(now);
             LMIC.opmode &= ~OP_NEXTCHNL;
+	    printf("OP_NEXTCHNL:%d \n",txbeg);
         } else {
             txbeg = LMIC.txend;
+	    printf("ELSE OP_NEXTCHNL:%d\n",txbeg);
         }
         // Delayed TX or waiting for duty cycle?
-        if( (LMIC.globalDutyRate != 0 || (LMIC.opmode & OP_RNDTX) != 0)  &&  (txbeg - LMIC.globalDutyAvail) < 0 )
+        if( (LMIC.globalDutyRate != 0 || (LMIC.opmode & OP_RNDTX) != 0)  &&  (txbeg - LMIC.globalDutyAvail) < 0 ){
             txbeg = LMIC.globalDutyAvail;
+            printf("txbeg = LMIC.globalDutyAvail;\n");
+	}
 #if !defined(DISABLE_BEACONS)
         // If we're tracking a beacon...
         // then make sure TX-RX transaction is complete before beacon
@@ -1882,6 +1886,7 @@ static void engineUpdate (void) {
         }
         // Cannot yet TX
         if( (LMIC.opmode & OP_TRACK) == 0 )
+	    printf("GOTO TXDELAY\n");
             goto txdelay; // We don't track the beacon - nothing else to do - so wait for the time to TX
         // Consider RX tasks
         if( txbeg == 0 ) // zero indicates no TX pending
@@ -1937,6 +1942,9 @@ static void engineUpdate (void) {
     LMIC_X_DEBUG_PRINTF("%"LMIC_PRId_ostime_t": next engine update in %"LMIC_PRId_ostime_t"\n", now, txbeg-TX_RAMPUP);
     printf("%d: next engine update in %d\n", now, txbeg-TX_RAMPUP);
     os_setTimedCallback(&LMIC.osjob, txbeg-TX_RAMPUP, FUNC_ADDR(runEngineUpdate));
+    //PIPPO
+    //printf("%d: next engine update in %d\n", now, 500000);
+    //os_setTimedCallback(&LMIC.osjob, 500000, FUNC_ADDR(runEngineUpdate));
 }
 
 

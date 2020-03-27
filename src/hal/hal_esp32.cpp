@@ -20,12 +20,21 @@
 #include "driver/timer.h"
 #include "esp_log.h"
 
+
+#include "esp32/ulp.h"
+#include "driver/rtc_io.h"
+#include "soc/rtc.h"
+
 #define LMIC_UNUSED_PIN 0xff
 
 static const char * const TAG = "ttn_hal";
 
 lmic_pinmap lmic_pins;
 HAL_ESP32 ttn_hal;
+
+
+RTC_DATA_ATTR int RTCticks;
+int mycounter=0;
 
 
 struct HALQueueItem {
@@ -316,6 +325,21 @@ bool HAL_ESP32::wait(WaitKind waitKind)
         }
     }
 }
+
+//u4_t hal_ticks()
+//{
+//   uint64_t val;
+//   if(ESP_SLEEP_WAKEUP_TIMER==esp_sleep_get_wakeup_cause() and mycounter==0){
+//      val=RTCticks;
+//      mycounter+=1;
+//      printf("hal_ticks after sleep counter:%d val:%llu\n",mycounter,val);
+//   }else{
+//     timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &val);
+//      RTCticks=val;
+//      printf("hal_ticks before sleep counter: %d val:%llu\n",mycounter,val);
+//   }
+//   return (u4_t)val;
+//}
 
 u4_t hal_ticks()
 {
