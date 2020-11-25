@@ -348,6 +348,11 @@ static void timer_example_evt_task(void *arg)
 void sendMessages2()
 {
 	printf("Sending message 1...\n");
+	for (uint8_t i = 0; i < 9; i++) {
+	  if (i != 0) {
+	    LMIC_disableChannel(i);
+	  }
+	}
 	TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
 	printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 	LMIC.bands[BAND_MILLI].avail =
@@ -355,6 +360,11 @@ void sendMessages2()
         LMIC.bands[BAND_DECI ].avail = os_getTime();
 
 	printf("Sending message 2...\n");
+	for (uint8_t i = 0; i < 9; i++) {
+	  if (i != 0) {
+	    LMIC_disableChannel(i);
+	  }
+	}
 	TTNResponseCode res2 = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
 	printf(res2 == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 	LMIC.bands[BAND_MILLI].avail =
